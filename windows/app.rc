@@ -1,0 +1,2 @@
+// The exe's own icon: what Explorer and a pinned taskbar button show.
+1 ICON "app.ico"

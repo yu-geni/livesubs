@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>ライブ字幕（英語→日本語）</title>
+<style id="appcss">
+:root{
+  --ja-size:34px;
+  --ja-scale:1;
+  --en-size:14px;
+  --en-scale:0.41;
+  --bg-a:0.55;
+  --fg:#e9edf2;
+  --dim:#9aa4b2;
+  --line:#242a33;
+  --panel:#141820;
+  --accent:#4da3ff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:#0b0d11;color:var(--fg);
+  font-family:"Yu Gothic UI","Yu Gothic","Meiryo","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+  min-height:100vh;display:flex;flex-direction:column;gap:10px;padding:12px;
+}
+h1{font-size:14px;margin:0;font-weight:600;letter-spacing:.04em;color:var(--dim)}
+
+/* ---------- status ---------- */
+#statusbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--dim)}
+.badge{display:flex;align-items:center;gap:6px}
+#dot{width:10px;height:10px;border-radius:50%;background:#555c66;flex:none}
+#dot.connecting{background:#e0b341}
+#dot.live{background:#3ecf7e}
+#meter{width:120px;height:8px;border-radius:5px;background:#1b2027;overflow:hidden;flex:none}
+#meterbar{width:0%;height:100%;background:linear-gradient(90deg,#3ecf7e,#e0b341 75%,#ff5d5d)}
+.mono{font-variant-numeric:tabular-nums}
+
+/* ---------- subtitles ---------- */
+#stage{flex:1 1 auto;min-height:220px;display:flex}
+#subs{
+  flex:1 1 auto;min-width:0;
+  background:rgba(0,0,0,var(--bg-a));
+  border:1px solid var(--line);border-radius:12px;
+  padding:16px 20px;
+  display:flex;flex-direction:column;justify-content:flex-end;gap:10px;
+  overflow:hidden;
+}
+#subs .line{opacity:1}
+#subs .ja{
+  font-size:var(--ja-size);line-height:1.3;font-weight:700;color:#fff;
+  text-shadow:0 2px 4px rgba(0,0,0,.95),0 0 2px rgba(0,0,0,1),0 0 10px rgba(0,0,0,.8);
+  word-break:normal;overflow-wrap:anywhere;
+}
+#subs .en{
+  display:none;
+  font-size:var(--en-size);line-height:1.35;color:#a9b3c0;margin-top:2px;
+  text-shadow:0 1px 3px rgba(0,0,0,.9);overflow-wrap:anywhere;
+}
+#subs.show-en .en{display:block}
+#subs .interim .ja{color:#dfe6ef;font-style:italic;opacity:.72;font-weight:600}
+#subs .interim .en{opacity:.6}
+#subs .empty{color:#6d7684;font-size:15px;font-style:italic;text-shadow:none}
+
+/* ---------- controls ---------- */
+#controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+button{
+  font:inherit;font-size:14px;padding:9px 16px;border-radius:9px;cursor:pointer;
+  background:#1d2430;color:var(--fg);border:1px solid #2d3542;
+}
+button:hover:not(:disabled){background:#263040}
+button:disabled{opacity:.45;cursor:not-allowed}
+#startBtn{background:var(--accent);border-color:var(--accent);color:#06121f;font-weight:700;min-width:96px}
+#startBtn.on{background:#ff5d5d;border-color:#ff5d5d;color:#1a0404}
+#notice{font-size:13px;line-height:1.6;color:#ffd7d7;background:#39171a;border:1px solid #6b2a2f;border-radius:9px;padding:10px 12px;white-space:pre-wrap}
+#notice[hidden]{display:none}
+#notice.info{color:#cfe0f5;background:#16202c;border-color:#2d3b4d}
+
+/* ---------- panels ---------- */
+details{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px}
+summary{cursor:pointer;color:var(--dim);font-size:13px;user-select:none}
+#settings .row{display:flex;align-items:center;gap:10px;margin:10px 0}
+#settings label.name{width:11em;flex:none;color:var(--dim)}
+input[type=range]{flex:1 1 auto;max-width:260px;accent-color:var(--accent)}
+input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px}
+.val{width:4.5em;text-align:right;color:var(--dim);font-variant-numeric:tabular-nums}
+#help{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.85}
+#help[hidden]{display:none}
+#help ol{margin:8px 0 10px;padding-left:1.4em}
+#help b{color:#fff}
+#pipHint{font-size:12px;color:#6d7684}
+#pipPlaceholder{flex:1 1 auto;display:flex;align-items:center;justify-content:center;
+  border:1px dashed var(--line);border-radius:12px;color:#6d7684;font-size:14px}
+
+/* ---------- picture-in-picture ---------- */
+body.pipbody{padding:0;gap:0;min-height:0;height:100%;background:#000;display:block;overflow:hidden}
+body.pipbody #subs{
+  height:100vh;width:100vw;border:0;border-radius:0;
+  padding:6px 12px;gap:6px;
+  --ja-size:clamp(14px, calc(4.4vw * var(--ja-scale)), 72px);
+  --en-size:clamp(10px, calc(4.4vw * var(--en-scale)), 72px);
+}
+</style>
+</head>
+<body>
+
+<h1>ライブ字幕（英語 → 日本語）</h1>
+
+<div id="statusbar">
+  <span class="badge"><span id="dot"></span><span id="connText">未接続</span></span>
+  <span class="badge">音量 <span id="meter"><span id="meterbar"></span></span></span>
+  <span class="badge" id="modelText">モデル: -</span>
+  <span class="badge mono" id="lagText">遅延: -</span>
+</div>
+
+<div id="notice" hidden></div>
+
+<div id="help">
+  はじめての方へ（3ステップ）
+  <ol>
+    <li>配信を<b>別タブ</b>で開く（Twitch / YouTube など）</li>
+    <li><b>「開始」</b>を押して、そのタブを選び<b>「タブの音声も共有する」</b>をオン</li>
+    <li><b>「小窓」</b>で字幕を配信の上に重ねる</li>
+  </ol>
+  <button id="helpClose">閉じる（次回から非表示）</button>
+</div>
+
+<div id="stage"><div id="subs"><div class="empty">字幕はここに表示されます</div></div></div>
+
+<div id="controls">
+  <button id="startBtn">開始</button>
+  <button id="pipBtn">小窓（常に最前面）</button>
+  <button id="helpBtn" title="使い方を表示">使い方</button>
+  <span id="pipHint"></span>
+</div>
+
+<details id="settings">
+  <summary>設定</summary>
+  <div class="row">
+    <label class="name" for="fsRange">文字サイズ（日本語）</label>
+    <input type="range" id="fsRange" min="16" max="80" step="1">
+    <span class="val" id="fsVal"></span>
+  </div>
+  <div class="row">
+    <label class="name" for="lnRange">表示行数</label>
+    <input type="range" id="lnRange" min="1" max="8" step="1">
+    <span class="val" id="lnVal"></span>
+  </div>
+  <div class="row">
+    <label class="name" for="opRange">背景の濃さ</label>
+    <input type="range" id="opRange" min="0" max="100" step="1">
+    <span class="val" id="opVal"></span>
+  </div>
+  <div class="row">
+    <label class="name" for="enChk">英語も表示</label>
+    <input type="checkbox" id="enChk">
+  </div>
+  <div class="row">
+    <label class="name" for="enRange">文字サイズ（英語）</label>
+    <input type="range" id="enRange" min="10" max="60" step="1">
+    <span class="val" id="enVal"></span>
+  </div>
+</details>
+
+<script id="app">
+'use strict';
+
+/* =====================================================================
+ * settings
+ * ===================================================================== */
+var LS_KEY = 'rvt.settings.v1';
+var DEFAULTS = { fontSize: 34, enSize: 14, lines: 3, showEn: false, bgOpacity: 0.55, helpDone: false };
+var settings = loadSettings();
+
+function loadSettings() {
+  var s = {};
+  for (var k in DEFAULTS) s[k] = DEFAULTS[k];
+  try {
+    var raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      var o = JSON.parse(raw);
+      if (o && typeof o === 'object') {
+        if (typeof o.fontSize === 'number') s.fontSize = clamp(o.fontSize, 16, 80);
+        if (typeof o.enSize === 'number') s.enSize = clamp(o.enSize, 10, 60);
+        if (typeof o.lines === 'number') s.lines = clamp(Math.round(o.lines), 1, 8);
+        if (typeof o.showEn === 'boolean') s.showEn = o.showEn;
+        if (typeof o.bgOpacity === 'number') s.bgOpacity = clamp(o.bgOpacity, 0, 1);
+        if (typeof o.helpDone === 'boolean') s.helpDone = o.helpDone;
+      }
+    }
+  } catch (e) { /* private mode / disabled storage */ }
+  return s;
+}
+function saveSettings() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (e) {}
+}
+function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+/* =====================================================================
+ * DOM
+ * ===================================================================== */
+var $ = function (id) { return document.getElementById(id); };
+var subs = $('subs'), stage = $('stage');
+var dot = $('dot'), connText = $('connText'), meterbar = $('meterbar');
+var modelText = $('modelText'), lagText = $('lagText'), notice = $('notice');
+var startBtn = $('startBtn'), pipBtn = $('pipBtn'), helpBtn = $('helpBtn'), help = $('help');
+var pipHint = $('pipHint');
+
+/* =====================================================================
+ * capture / socket state
+ * ===================================================================== */
+var capturing = false;       // user wants capture (drives reconnect)
+var stream = null;
+var ctx = null, srcNode = null, wlNode = null, gainNode = null;
+var ws = null, reconnectTimer = 0, reconnectTries = 0, nextReconnectAt = 0;
+var pipWin = null;
+var level = 0, lastLevelPct = -1;
+var connState = '';
+var behindTimer = 0;
+
+var MAX_BUFFERED = 32000;    // ~1 s of 16 kHz mono s16le -> drop instead of lagging
+
+/* =====================================================================
+ * subtitle model + rendering
+ * ===================================================================== */
+var finals = [];      // [{id, en, ja}] oldest first
+var interim = null;   // {id, en, ja}
+
+function render() {
+  var frag = document.createDocumentFragment();
+  var n = 0;
+  for (var i = 0; i < finals.length; i++) {
+    var f = finals[i];
+    if (!f.ja && !(settings.showEn && f.en)) continue; // nothing to show for this id
+    frag.appendChild(lineEl(f, false));
+    n++;
+  }
+  if (interim && (interim.ja || (settings.showEn && interim.en))) {
+    frag.appendChild(lineEl(interim, true)); n++;
+  }
+  if (n === 0) {
+    var e = document.createElement('div');
+    e.className = 'empty';
+    e.textContent = capturing ? '音声を待っています…' : '字幕はここに表示されます';
+    frag.appendChild(e);
+  }
+  subs.textContent = '';
+  subs.appendChild(frag);
+}
+
+function lineEl(rec, isInterim) {
+  var wrap = document.createElement('div');
+  wrap.className = isInterim ? 'line interim' : 'line';
+  var ja = document.createElement('div');
+  ja.className = 'ja';
+  ja.textContent = rec.ja || (isInterim ? '…' : '');
+  wrap.appendChild(ja);
+  var en = document.createElement('div');
+  en.className = 'en';
+  en.textContent = rec.en || '';
+  wrap.appendChild(en);
+  return wrap;
+}
+
+function trimFinals() {
+  while (finals.length > settings.lines) finals.shift();
+}
+
+function onInterim(m) {
+  var id = m.id | 0;
+  for (var i = 0; i < finals.length; i++) if (finals[i].id === id) return; // already final
+  var keepJa = (interim && interim.id === id) ? interim.ja : '';
+  var ja = (typeof m.ja === 'string' && m.ja.length) ? m.ja : keepJa;
+  interim = { id: id, en: typeof m.en === 'string' ? m.en : '', ja: ja };
+  render();
+}
+
+function onFinal(m) {
+  var id = m.id | 0;
+  if (interim && interim.id <= id) interim = null;
+  var rec = {
+    id: id,
+    en: typeof m.en === 'string' ? m.en : '',
+    ja: typeof m.ja === 'string' ? m.ja : ''
+  };
+  var idx = -1;
+  for (var i = 0; i < finals.length; i++) if (finals[i].id === id) { idx = i; break; }
+  if (idx >= 0) {
+    finals[idx] = rec;
+  } else {
+    finals.push(rec);
+    finals.sort(function (a, b) { return a.id - b.id; });
+  }
+  trimFinals();
+  if (typeof m.lag_ms === 'number' && isFinite(m.lag_ms)) {
+    lagText.textContent = '遅延: ' + Math.round(m.lag_ms) + ' ms';
+  }
+  render();
+}
+
+/* =====================================================================
+ * css variables (must be applied to the PiP document too)
+ * ===================================================================== */
+function applyVars(root) {
+  if (!root) return;
+  root.style.setProperty('--ja-size', settings.fontSize + 'px');
+  root.style.setProperty('--ja-scale', String(settings.fontSize / 34));
+  root.style.setProperty('--en-size', settings.enSize + 'px');
+  root.style.setProperty('--en-scale', String(settings.enSize / 34));
+  root.style.setProperty('--bg-a', String(settings.bgOpacity));
+}
+function applyAllVars() {
+  applyVars(document.documentElement);
+  if (pipWin && !pipWin.closed) applyVars(pipWin.document.documentElement);
+}
+function applySettings() {
+  applyAllVars();
+  if (settings.showEn) subs.classList.add('show-en'); else subs.classList.remove('show-en');
+  trimFinals();
+  render();
+}
+
+/* =====================================================================
+ * status / notices
+ * ===================================================================== */
+function setConn(state) {
+  if (state === connState) return;
+  connState = state;
+  dot.className = state === 'live' ? 'live' : (state === 'connecting' ? 'connecting' : '');
+  connText.textContent = state === 'live' ? '受信中' : (state === 'connecting' ? '接続中' : '未接続');
+}
+function showNotice(msg, info) {
+  notice.textContent = msg;
+  if (info) notice.classList.add('info'); else notice.classList.remove('info');
+  notice.hidden = false;
+}
+function clearNotice() {
+  notice.hidden = true;
+  notice.textContent = '';
+}
+function setLevel(rms) {
+  // peak-ish smoothing, then a rough dB scale (-60 dB .. 0 dB)
+  level = Math.max(rms, level * 0.72);
+  var pct = 0;
+  if (level > 1e-5) pct = clamp((20 * Math.log(level) / Math.LN10 + 60) / 60 * 100, 0, 100);
+  var q = Math.round(pct);
+  if (q !== lastLevelPct) { lastLevelPct = q; meterbar.style.width = q + '%'; }
+}
+
+/* =====================================================================
+ * WebSocket
+ * ===================================================================== */
+function wsUrl() {
+  return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+}
+
+function connect() {
+  if (!capturing) return;
+  if (ws && (ws.readyState === 0 || ws.readyState === 1)) return;
+  setConn('connecting');
+  var sock;
+  try {
+    sock = new WebSocket(wsUrl());
+  } catch (e) {
+    scheduleReconnect();
+    return;
+  }
+  sock.binaryType = 'arraybuffer';
+  ws = sock;
+
+  sock.onopen = function () {
+    if (ws !== sock) { try { sock.close(); } catch (e) {} return; }
+    reconnectTries = 0;
+    setConn('connecting');
+    // new capture / fresh connection: tell the server to drop buffered audio
+    try { sock.send(JSON.stringify({ type: 'reset' })); } catch (e) {}
+  };
+  sock.onmessage = function (ev) {
+    if (ws !== sock) return;
+    if (typeof ev.data !== 'string') return;
+    var m;
+    try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (!m || typeof m !== 'object') return;
+    setConn('live');
+    switch (m.type) {
+      case 'ready':
+        // every connection is a new server session whose segment ids restart at 0
+        finals = [];
+        interim = null;
+        render();
+        modelText.textContent = 'ASR: ' + String(m.asr == null ? '-' : m.asr) +
+          ' / MT: ' + String(m.mt == null ? '-' : m.mt) +
+          ' / ' + String(m.device == null ? '-' : m.device);
+        break;
+      case 'interim': onInterim(m); break;
+      case 'final': onFinal(m); break;
+      case 'behind':
+        // the engine could not keep up and let some sound go: that stretch gets no subtitle
+        showNotice('処理が追いついていません（音声の一部を字幕にできませんでした）', true);
+        clearTimeout(behindTimer);
+        behindTimer = setTimeout(clearNotice, 8000);
+        break;
+      case 'error':
+        showNotice('サーバーエラー: ' + String(m.message == null ? '(詳細不明)' : m.message));
+        break;
+      default: break;
+    }
+  };
+  sock.onerror = function () { /* onclose follows */ };
+  sock.onclose = function () {
+    if (ws !== sock) return;
+    ws = null;
+    if (capturing) { setConn('connecting'); scheduleReconnect(); }
+    else setConn('idle');
+  };
+}
+
+function scheduleReconnect() {
+  if (!capturing) return;
+  var delay = Math.min(8000, 400 * Math.pow(2, reconnectTries)) + Math.floor(Math.random() * 250);
+  reconnectTries++;
+  nextReconnectAt = Date.now() + delay;
+  if (reconnectTimer) return;
+  // The timer is only a backup: background tabs get their timers throttled, so
+  // maybeReconnect() is also driven by the (unthrottled) worklet audio messages.
+  reconnectTimer = setTimeout(function () { reconnectTimer = 0; maybeReconnect(); }, delay);
+}
+
+function maybeReconnect() {
+  if (!capturing || ws) return;
+  if (Date.now() < nextReconnectAt) {
+    if (!reconnectTimer) {
+      reconnectTimer = setTimeout(function () { reconnectTimer = 0; maybeReconnect(); },
+        Math.max(50, nextReconnectAt - Date.now()));
+    }
+    return;
+  }
+  connect();
+}
+
+function closeSocket() {
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = 0; }
+  reconnectTries = 0;
+  nextReconnectAt = 0;
+  if (ws) {
+    var s = ws;
+    ws = null;
+    s.onopen = s.onmessage = s.onerror = s.onclose = null;
+    try { s.close(); } catch (e) {}
+  }
+}
+
+/* =====================================================================
+ * capture
+ * ===================================================================== */
+var NO_AUDIO_MSG =
+  '音声トラックが取得できませんでした。\n' +
+  '・「Chromeタブ」を選び、「タブの音声も共有する」をオンにしてください。\n' +
+  '・または「画面全体」を選び、「システム音声も共有する」をオンにしてください。\n' +
+  '・「ウィンドウ」の共有では音声を取得できません。\n' +
+  '・Firefox などは音声の共有に対応していません。Chrome / Edge（デスクトップ版）をお使いください。';
+
+var IS_CHROMIUM = /(Chrome|Chromium|Edg)\//.test(navigator.userAgent) &&
+  !/Firefox\//.test(navigator.userAgent);
+
+function unsupportedReason() {
+  if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    return 'このページは安全なコンテキストではないため画面共有が使えません。http://localhost:8765/ で開いてください。';
+  }
+  if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
+    return 'このブラウザは画面共有（getDisplayMedia）に対応していません。Chrome または Edge（デスクトップ版）でお使いください。';
+  }
+  if (typeof window.AudioContext !== 'function' || typeof window.AudioWorkletNode !== 'function') {
+    return 'このブラウザは AudioWorklet に対応していません。Chrome または Edge（デスクトップ版）でお使いください。';
+  }
+  return null;
+}
+
+async function start() {
+  var bad = unsupportedReason();
+  if (bad) { showNotice(bad); return; }
+
+  clearNotice();
+  startBtn.disabled = true;
+
+  // Create (and resume) the AudioContext inside the click handler.
+  try {
+    try {
+      ctx = new AudioContext({ sampleRate: 16000, latencyHint: 'interactive' });
+    } catch (e) {
+      ctx = new AudioContext({ latencyHint: 'interactive' }); // worklet resamples
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+  } catch (e) {
+    ctx = null;
+    startBtn.disabled = false;
+    showNotice('AudioContext を作成できませんでした: ' + (e && e.message ? e.message : String(e)));
+    return;
+  }
+
+  var s;
+  try {
+    s = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: 1 },
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      systemAudio: 'include'
+    });
+  } catch (e) {
+    await hardStop();
+    startBtn.disabled = false;
+    var name = e && e.name ? e.name : '';
+    if (name === 'NotAllowedError') {
+      showNotice('画面共有がキャンセルされました。');
+    } else if (name === 'NotFoundError' || name === 'NotReadableError') {
+      showNotice('共有できる画面／タブが見つかりませんでした。');
+    } else {
+      showNotice('画面共有を開始できませんでした: ' + name + ' ' + (e && e.message ? e.message : ''));
+    }
+    return;
+  }
+
+  stream = s;
+  var atracks = s.getAudioTracks();
+  if (atracks.length === 0) {
+    await hardStop();
+    startBtn.disabled = false;
+    showNotice(NO_AUDIO_MSG);
+    return;
+  }
+
+  // Chrome needs the video track, but we never want to render it.
+  // Stopping it can end the whole capture, so only disable it.
+  var vtracks = s.getVideoTracks();
+  for (var i = 0; i < vtracks.length; i++) vtracks[i].enabled = false;
+
+  var atrack = atracks[0];
+  atrack.addEventListener('ended', function () { stop('共有が停止されました。', true); });
+
+  try {
+    await ctx.audioWorklet.addModule('pcm-worklet.js');
+  } catch (e) {
+    await hardStop();
+    startBtn.disabled = false;
+    showNotice('pcm-worklet.js を読み込めませんでした: ' + (e && e.message ? e.message : String(e)));
+    return;
+  }
+  if (!stream) { startBtn.disabled = false; return; } // stopped while loading
+
+  srcNode = ctx.createMediaStreamSource(stream);
+  wlNode = new AudioWorkletNode(ctx, 'pcm-downsampler', {
+    numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1]
+  });
+  wlNode.port.onmessage = onWorkletMessage;
+  gainNode = ctx.createGain();
+  gainNode.gain.value = 0; // keep the graph pulled without echoing the audio
+  srcNode.connect(wlNode);
+  wlNode.connect(gainNode);
+  gainNode.connect(ctx.destination);
+
+  capturing = true;
+  finals = [];
+  interim = null;
+  lagText.textContent = '遅延: -';
+  render();
+  connect();
+
+  startBtn.disabled = false;
+  startBtn.textContent = '停止';
+  startBtn.classList.add('on');
+}
+
+function onWorkletMessage(ev) {
+  var d = ev.data;
+  if (!d || d.type !== 'pcm') return;
+  setLevel(typeof d.rms === 'number' ? d.rms : 0);
+  var buf = d.pcm;
+  if (!buf || !capturing) return;
+  if (!ws) {
+    maybeReconnect(); // timer-independent retry (hidden tabs throttle setTimeout)
+    return;
+  }
+  if (ws.readyState === 1) {
+    if (ws.bufferedAmount > MAX_BUFFERED) return; // drop rather than build latency
+    try { ws.send(buf); } catch (e) {}
+  }
+}
+
+async function hardStop() {
+  capturing = false;
+  closeSocket();
+  if (wlNode) {
+    wlNode.port.onmessage = null;
+    try { wlNode.port.postMessage({ type: 'stop' }); } catch (e) {}
+    try { wlNode.disconnect(); } catch (e) {}
+    wlNode = null;
+  }
+  if (srcNode) { try { srcNode.disconnect(); } catch (e) {} srcNode = null; }
+  if (gainNode) { try { gainNode.disconnect(); } catch (e) {} gainNode = null; }
+  if (stream) {
+    var t = stream.getTracks();
+    for (var i = 0; i < t.length; i++) { try { t[i].stop(); } catch (e) {} }
+    stream = null;
+  }
+  if (ctx) { var c = ctx; ctx = null; try { await c.close(); } catch (e) {} }
+  level = 0; lastLevelPct = -1; meterbar.style.width = '0%';
+  setConn('idle');
+  startBtn.textContent = '開始';
+  startBtn.classList.remove('on');
+  startBtn.disabled = false;
+}
+
+async function stop(msg, info) {
+  await hardStop();
+  interim = null;
+  render();
+  if (msg) showNotice(msg, info);
+}
+
+startBtn.addEventListener('click', function () {
+  if (capturing || stream) stop(null);
+  else start();
+});
+
+/* =====================================================================
+ * Document Picture-in-Picture (小窓)
+ * ===================================================================== */
+var PIP_SUPPORTED = ('documentPictureInPicture' in window) &&
+  window.documentPictureInPicture &&
+  typeof window.documentPictureInPicture.requestWindow === 'function';
+
+if (!PIP_SUPPORTED) {
+  pipBtn.disabled = true;
+  pipBtn.title = 'このブラウザは小窓（Document Picture-in-Picture）に対応していません。Chrome / Edge 116 以降が必要です。';
+  pipHint.textContent = '小窓は未対応のブラウザです';
+}
+
+async function openPip() {
+  if (!PIP_SUPPORTED) return;
+  if (pipWin && !pipWin.closed) { try { pipWin.focus(); } catch (e) {} return; }
+  var w;
+  try {
+    w = await window.documentPictureInPicture.requestWindow({ width: 720, height: 180 });
+  } catch (e) {
+    showNotice('小窓を開けませんでした: ' + (e && e.message ? e.message : String(e)));
+    return;
+  }
+  pipWin = w;
+  var d = w.document;
+  try { d.documentElement.lang = 'ja'; } catch (e) {}
+  var st = d.createElement('style');
+  var css = document.getElementById('appcss');
+  st.textContent = css ? css.textContent : '';
+  d.head.appendChild(st);
+  d.body.className = 'pipbody';
+  d.body.appendChild(subs); // adopted into the PiP document
+  applyVars(d.documentElement);
+  var ph = document.createElement('div');
+  ph.id = 'pipPlaceholder';
+  ph.textContent = '字幕は小窓に表示中です';
+  stage.appendChild(ph);
+  pipBtn.textContent = '小窓を閉じる';
+  w.addEventListener('pagehide', function () {
+    pipWin = null;
+    var p = document.getElementById('pipPlaceholder');
+    if (p && p.parentNode) p.parentNode.removeChild(p);
+    stage.appendChild(subs);
+    applyAllVars();
+    pipBtn.textContent = '小窓（常に最前面）';
+  }, { once: true });
+}
+
+pipBtn.addEventListener('click', function () {
+  if (pipWin && !pipWin.closed) { try { pipWin.close(); } catch (e) {} return; }
+  openPip();
+});
+
+/* =====================================================================
+ * settings UI
+ * ===================================================================== */
+var fsRange = $('fsRange'), fsVal = $('fsVal');
+var lnRange = $('lnRange'), lnVal = $('lnVal');
+var opRange = $('opRange'), opVal = $('opVal');
+var enChk = $('enChk');
+var enRange = $('enRange'), enVal = $('enVal');
+
+function syncSettingsUI() {
+  fsRange.value = String(settings.fontSize);
+  fsVal.textContent = settings.fontSize + 'px';
+  lnRange.value = String(settings.lines);
+  lnVal.textContent = settings.lines + '行';
+  opRange.value = String(Math.round(settings.bgOpacity * 100));
+  opVal.textContent = Math.round(settings.bgOpacity * 100) + '%';
+  enChk.checked = !!settings.showEn;
+  enRange.value = String(settings.enSize);
+  enVal.textContent = settings.enSize + 'px';
+}
+fsRange.addEventListener('input', function () {
+  settings.fontSize = clamp(parseInt(fsRange.value, 10) || DEFAULTS.fontSize, 16, 80);
+  fsVal.textContent = settings.fontSize + 'px';
+  applyAllVars(); saveSettings();
+});
+lnRange.addEventListener('input', function () {
+  settings.lines = clamp(parseInt(lnRange.value, 10) || DEFAULTS.lines, 1, 8);
+  lnVal.textContent = settings.lines + '行';
+  trimFinals(); render(); saveSettings();
+});
+opRange.addEventListener('input', function () {
+  settings.bgOpacity = clamp((parseInt(opRange.value, 10) || 0) / 100, 0, 1);
+  opVal.textContent = Math.round(settings.bgOpacity * 100) + '%';
+  applyAllVars(); saveSettings();
+});
+enRange.addEventListener('input', function () {
+  settings.enSize = clamp(parseInt(enRange.value, 10) || DEFAULTS.enSize, 10, 60);
+  enVal.textContent = settings.enSize + 'px';
+  applyAllVars(); saveSettings();
+});
+enChk.addEventListener('change', function () {
+  settings.showEn = !!enChk.checked;
+  applySettings(); saveSettings();
+});
+
+$('helpClose').addEventListener('click', function () {
+  help.hidden = true;
+  settings.helpDone = true;
+  saveSettings();
+});
+helpBtn.addEventListener('click', function () { help.hidden = !help.hidden; });
+
+/* =====================================================================
+ * boot
+ * ===================================================================== */
+syncSettingsUI();
+applySettings();
+help.hidden = !!settings.helpDone;
+
+var boot = unsupportedReason();
+if (boot) {
+  showNotice(boot);
+  startBtn.disabled = true;
+} else if (!IS_CHROMIUM) {
+  showNotice('このツールは Chrome / Edge（デスクトップ版）専用です。\n' +
+    'Firefox などではタブや画面の音声を共有できないため、字幕が出ません。');
+}
+
+window.addEventListener('pagehide', function () {
+  if (capturing || stream) hardStop();
+});
+</script>
+</body>
+</html>

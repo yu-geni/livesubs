@@ -1,0 +1,15 @@
+pub const SAMPLES: &[(&str, &str)] = &[
+    ("では、今日の試合の得点方法について順番に説明していきます。", "So let us walk through the ways to score in today's match, one at a time."),
+    ("まず最初に話しておきたいのは、モデルが実際にデータからどのように学習するのかということです。これは見た目よりもずっと複雑な話になります。", "The first thing I want to talk about is how the model actually learns from the data, and this turns out to be a lot more involved than it looks."),
+    ("そしてそれは、実際にはおどろくほど難しいことが分かっています。", "And that turns out to be surprisingly hard in practice."),
+    ("デポという幼稚園、そして覇権ボーナス。", "Depot, a kindergarten, and then the supremacy bonus."),
+    ("この町の中心地に関わらず、ひとつの中立的な目的は幼稚園である。", "One neutral objective, it is the kindergarten, regardless of the centre of this town."),
+    ("えーと...", "um"),
+    ("ごめん、ふと思いついたことがあって。後で話します。", "Sorry, I just had a random thought occur to me. I'll talk about it later."),
+    ("このエリアをAO終了時までに制圧したプレイヤーは、4ポイント獲得します。", "Whoever has control of this area by the end of the AO will get four points."),
+    ("今は弾薬庫があります。特に弾薬庫に爆発物で満たされたトラックがあります。", "Now, there is an ammo depot, specifically a truck filled with explosives at the ammo depot."),
+    ("もしあのトラックが爆発したら、周囲の建物はすべて吹き飛びます。", "If that truck goes up, every building around it goes with it."),
+    ("さて、ここで何が起きているのかを思い出すために、もう一度ポイント値を簡単に見てみましょう。", "Now let me quickly look at the point values again to remind myself of what is going on here."),
+    ("それでは、すべてを細かく分けると、今日両チームとも得点できる4つの方法があります。", "So breaking everything down, here are the four different methods that either side can score points today."),
+    ("最後に、全体のまとめとして、それぞれの目標の重みを比べておきます。", "Finally, to wrap everything up, let us compare how much each objective is worth."),
+];

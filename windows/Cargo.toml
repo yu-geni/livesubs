@@ -1,0 +1,49 @@
+[package]
+name = "livesubs"
+version = "0.1.0"
+edition = "2021"
+description = "Live Japanese subtitles for English audio: the Windows app"
+license = "MIT"
+
+[lib]
+name = "livesubs"
+path = "src/lib.rs"
+
+# The app. The test programs of the parts are in src/bin/ and are built along with it.
+[[bin]]
+name = "LiveSubs"
+path = "src/main.rs"
+
+# the WebSocket framing for the engine link and for the Chrome extension's audio; no TLS: both are on 127.0.0.1
+[dependencies.tungstenite]
+version = "0.30"
+default-features = false
+features = ["handshake"]
+
+# only for SO_LINGER 0, to cut a replaced tab's connection at once
+[dependencies.socket2]
+version = "0.6"
+
+# the #[implement] macro of windows 0.58 expands to ::windows_core:: paths, so that crate has to be nameable
+[dependencies.windows-core]
+version = "0.58"
+
+[dependencies.windows]
+version = "0.58"
+features = [
+  "implement", "Win32_Media_Audio", "Win32_Networking_WinSock", "Win32_System_Diagnostics_ToolHelp",
+  "Win32_Foundation", "Win32_Security", "Win32_Graphics_Gdi", "Win32_Graphics_Direct2D", "Win32_Graphics_Direct2D_Common",
+  "Win32_Graphics_DirectWrite", "Win32_Graphics_Dxgi_Common", "Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi",
+  "Win32_UI_Shell", "Win32_UI_Input_KeyboardAndMouse", "Win32_System_LibraryLoader", "Win32_System_Threading",
+  "Win32_System_ProcessStatus", "Win32_System_SystemInformation", "Win32_System_Com", "Win32_Storage_FileSystem", "Foundation_Numerics",
+]
+
+[profile.release]
+opt-level = 2
+# The worker threads of capture, engine and tabaudio catch a panic and carry on, the way
+# the C# caught an exception; with panic = "abort" every one of those guards would be
+# dead code and the first panic anywhere would take the whole app down.
+panic = "unwind"
+strip = true
+lto = true
+codegen-units = 1

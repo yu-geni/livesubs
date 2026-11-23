@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "ライブ字幕 タブ音声",
+  "version": "1.2",
+  "description": "ボタンを押したタブの音声だけを、ライブ字幕アプリへ送ります。",
+  "minimum_chrome_version": "116",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAph4bhRwGHKSUy2+jZB8zU5g7CvPHJCnbHNkBeM0oxf42Nb0seeDVgXtfqcAaBkzzqMgpuq3E63W48iM+oNCgqUdLA6HAUIGRgIwgcIdjyF6QGN/rGABnzVCkQwWYs3iW0l4E3fQaMDglE59paxCE9+Bhl3tigW4tv2OYgsIQC1fB+V7ZlAykwL3KDP5mmmHfQ3ffDidKT+8Cf2TA68jAWinKRXVBzzl0N9cxcf4+JCneeiAnnI3mF5dbhWQYxTF6dtlvitkVipP+OIO1YeZYcVLu8OQmQnljqkd044TiO7cRwUWqzdqR71QHVaUwggiplYeNbqXnj2buMQKTtZPJbwIDAQAB",
+  "permissions": ["tabCapture", "offscreen", "activeTab", "scripting", "storage"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "このタブの音声を字幕にする",
+    "default_icon": { "16": "icons/16.png", "32": "icons/32.png" }
+  },
+  "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" }
+}

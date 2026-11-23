@@ -1,0 +1,30 @@
+[project]
+name = "livesubs"
+version = "0.1.0"
+description = "Local real-time English speech -> Japanese subtitles (faster-whisper + PLaMo 3 Translate)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "faster-whisper>=1.2",
+    "llama-cpp-python>=0.3.16",
+    "aiohttp>=3.9",
+    "numpy",
+    # CUDA runtime libs for CTranslate2 and llama.cpp (the driver itself comes from the system).
+    "nvidia-cublas-cu12",
+    "nvidia-cudnn-cu12>=9,<10",
+    "nvidia-cuda-runtime-cu12",
+]
+
+[tool.uv]
+package = false
+
+# Prebuilt CUDA 12 wheels (no compiler or CUDA toolkit needed). For a machine without an
+# NVIDIA GPU, switch the url to .../whl/cpu and run with --device cpu.
+[[tool.uv.index]]
+name = "llama-cpp-cuda"
+url = "https://abetlen.github.io/llama-cpp-python/whl/cu124"
+explicit = true
+
+[tool.uv.sources]
+llama-cpp-python = { index = "llama-cpp-cuda" }
